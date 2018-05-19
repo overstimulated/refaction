@@ -12,7 +12,7 @@ namespace refactor_me
             formatters.JsonFormatter.Indent = true;
 
             // Web API routes
-            config.MapHttpAttributeRoutes();
+            config.MapHttpAttributeRoutes();          
 
             config.Routes.MapHttpRoute(
                 name: "DefaultApi",

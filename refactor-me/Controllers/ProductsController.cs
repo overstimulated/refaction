@@ -1,115 +1,105 @@
 ﻿using System;
-using System.Net;
+using System.CodeDom;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Web.Http;
+using System.Web.Http.Description;
+using System.Web.Http.Results;
+using AutoMapper;
 using refactor_me.Models;
+using refactor_me.Services;
+using refactor_me.DTO;
 
 namespace refactor_me.Controllers
 {
-    [RoutePrefix("products")]
+    /// <inheritdoc />
+    /// <summary>
+    /// Version 2 of the ProductsController 
+    /// with improved functionalities
+    /// </summary>
+    [RoutePrefix("api/products")]
     public class ProductsController : ApiController
     {
-        [Route]
-        [HttpGet]
-        public Products GetAll()
+        //TODO implement swagger
+
+        private readonly IProductService _service;
+        private readonly IMapper _mapper;
+
+        public ProductsController(IProductService service, IMapper mapper)
         {
-            return new Products();
+            _service = service;
+            _mapper = mapper;
         }
 
-        [Route]
+        // GET: api/Products
+        [Route("")]
         [HttpGet]
-        public Products SearchByName(string name)
+        [ResponseType(typeof(ItemLists<ProductDto>))]
+        public IHttpActionResult Get()
         {
-            return new Products(name);
+            var result = new ItemLists<ProductDto>()
+            {
+                Items = _mapper.Map<IEnumerable<ProductDto>>(_service.GetAll())
+            };
+            return Ok(result);
         }
 
+        // GET: api/Products?name=
+        [Route("")]
+        [HttpGet]
+        [ResponseType(typeof(ProductDto))]
+        public async Task<IHttpActionResult> Get(string name)
+        {
+            return Ok(_mapper.Map<Product,ProductDto>(await _service.GetByName(name)));
+        }
+               
         [Route("{id}")]
         [HttpGet]
-        public Product GetProduct(Guid id)
+        [ResponseType(typeof(ProductDto))]
+        public async Task<IHttpActionResult> Get(Guid id)
         {
-            var product = new Product(id);
-            if (product.IsNew)
-                throw new HttpResponseException(HttpStatusCode.NotFound);
+            var product = await _service.GetById(id);
 
-            return product;
+            if (product != null)
+            {
+                return Ok(_mapper.Map<ProductDto>(product));
+            }
+            return NotFound();
         }
 
-        [Route]
+        // POST: api/Products
+        [Route("")]
         [HttpPost]
-        public void Create(Product product)
+        [ResponseType(typeof(OkResult))]
+        public async Task<IHttpActionResult> Post([FromBody]ProductDto productDto)
         {
-            product.Save();
+            await _service.Create(_mapper.Map<Product>(productDto));
+
+            return Ok();
         }
 
+        // PUT: api/Products/5
+        // /products/{id} is the Id needed? surely we can get the id from the payload
         [Route("{id}")]
         [HttpPut]
-        public void Update(Guid id, Product product)
+        [ResponseType(typeof(OkResult))]
+        public async Task<IHttpActionResult> Put(Guid id, [FromBody] ProductDto productDto)
         {
-            var orig = new Product(id)
-            {
-                Name = product.Name,
-                Description = product.Description,
-                Price = product.Price,
-                DeliveryPrice = product.DeliveryPrice
-            };
+            var product = _mapper.Map<Product>(productDto);
+            await _service.Update(id, product);
 
-            if (!orig.IsNew)
-                orig.Save();
+            return Ok();
         }
 
+        // DELETE: api/Products/5
         [Route("{id}")]
         [HttpDelete]
-        public void Delete(Guid id)
+        [ResponseType(typeof(OkResult))]
+        public async Task<IHttpActionResult> Delete(Guid id)
         {
-            var product = new Product(id);
-            product.Delete();
-        }
-
-        [Route("{productId}/options")]
-        [HttpGet]
-        public ProductOptions GetOptions(Guid productId)
-        {
-            return new ProductOptions(productId);
-        }
-
-        [Route("{productId}/options/{id}")]
-        [HttpGet]
-        public ProductOption GetOption(Guid productId, Guid id)
-        {
-            var option = new ProductOption(id);
-            if (option.IsNew)
-                throw new HttpResponseException(HttpStatusCode.NotFound);
-
-            return option;
-        }
-
-        [Route("{productId}/options")]
-        [HttpPost]
-        public void CreateOption(Guid productId, ProductOption option)
-        {
-            option.ProductId = productId;
-            option.Save();
-        }
-
-        [Route("{productId}/options/{id}")]
-        [HttpPut]
-        public void UpdateOption(Guid id, ProductOption option)
-        {
-            var orig = new ProductOption(id)
-            {
-                Name = option.Name,
-                Description = option.Description
-            };
-
-            if (!orig.IsNew)
-                orig.Save();
-        }
-
-        [Route("{productId}/options/{id}")]
-        [HttpDelete]
-        public void DeleteOption(Guid id)
-        {
-            var opt = new ProductOption(id);
-            opt.Delete();
+            await _service.Delete(id);
+            return Ok();
         }
     }
 }
